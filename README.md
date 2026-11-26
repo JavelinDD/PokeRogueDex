@@ -1,76 +1,76 @@
 # PokeRogueDex
 
-A read-only in-game companion for [PokéRogue](https://pokerogue.net). One browser extension, no Tampermonkey, no CDN, no network calls from the extension itself.
+[PokéRogue](https://pokerogue.net) 的游戏内只读辅助工具。只需安装一个浏览器扩展：不需要 Tampermonkey，不需要 CDN，扩展本身不会发起任何网络请求。
 
-PokeRogueDex reads your **current battle party** and **opponent** on the PokéRogue page and shows their types, type effectiveness, base stats, IVs, moves, rarity and encounter regions against an embedded PokéRogue dex index.
+PokeRogueDex 在游戏页面上读取你的**当前对战队伍**和**对手**，并对照内置的图鉴索引，显示属性、属性克制、种族值、个体值、招式、稀有度与出现区域。
 
-## Features
+## 功能
 
-| Area | What it shows |
+| 模块 | 显示内容 |
 |---|---|
-| Your party | Name, level, HP, types, ability, passive, nature, current moves, actual six stats |
-| Opponent | Name, level, HP, types, ability, stats, IVs, current moves from the local save snapshot |
-| Type effectiveness | Weak / resist / immune groups with multipliers |
-| Dex lookup | 1082 embedded species, 919 moves, 1082 species-name fallbacks, rarity and regions |
-| Panel | Eight-direction resize, long-press to drag anywhere, double-click title to reset, saved position/size |
-| Extras | Copy roster, debug panel, remembered on/off state |
+| 我方队伍 | 名称、等级、HP、属性、特性、被动、性格、当前招式、六维实际数值 |
+| 对手 | 名称、等级、HP、属性、特性、六维、个体值、当前招式（来自本地存档快照） |
+| 属性克制 | 按克制 / 抵抗 / 无效分组，并显示倍率 |
+| 图鉴对照 | 内置 1082 个物种、919 条招式、1082 条物种中文名兜底，以及稀有度与出现区域 |
+| 面板 | 八向缩放、长按任意位置拖动、双击标题栏复位，位置与尺寸自动记忆 |
+| 其他 | 复制名单、调试信息、开关状态记忆 |
 
-## Install
+## 安装
 
-Requires Chrome 111+ or Edge.
+需要 Chrome 111+ 或 Edge。
 
-1. Download or clone this repository.
-2. Open `chrome://extensions` (or `edge://extensions`).
-3. Enable **Developer mode**.
-4. Click **Load unpacked** and select the `apps/bridge-only` folder.
-5. Open https://pokerogue.net — the **图鉴桥** button appears in the bottom-right corner.
+1. 下载或克隆本仓库。
+2. 打开 `chrome://extensions`（或 `edge://extensions`）。
+3. 开启**开发者模式**。
+4. 点击**加载已解压的扩展程序**，选择 `apps/bridge-only` 文件夹。
+5. 打开 https://pokerogue.net ，右下角会出现「图鉴桥」按钮。
 
-No build step is needed for installation: `bridge.user.js` is already generated and committed.
+安装无需构建：`bridge.user.js` 已经生成并提交在仓库中。
 
-## Try it without installing
+## 不安装也能体验
 
-Open `apps/bridge-only/demo.html` in a browser. It simulates the game page with sample data and shows the exact bridge panel.
+在浏览器中打开 `apps/bridge-only/demo.html`。它会用示例数据模拟游戏页面，展示与真实环境一致的桥接面板。
 
-## How data is read
+## 数据读取方式
 
-- **Your party** comes from the game's official public `window.gameInfo` interface.
-- **Opponent** comes from the encrypted `sessionData*` save snapshot in the page's local storage. The bundled `crypto-js` decrypts it locally; the save is never modified.
-- The extension only declares host access for `pokerogue.net` and `*.pokerogue.net`. It sends nothing to any server.
-- Game updates can change these internals; if live opponent capture is unavailable, the save snapshot remains the fallback.
+- **我方队伍**来自游戏官方公开的 `window.gameInfo` 接口。
+- **对手**来自页面本地存储中加密的 `sessionData*` 存档快照。内置的 `crypto-js` 在本地完成解密，不会修改存档。
+- 扩展只声明 `pokerogue.net` 与 `*.pokerogue.net` 的主机权限，不向任何服务器发送数据。
+- 游戏更新可能改变内部数据结构；如果无法实时读取对手，存档快照仍是可用回退方案。
 
-## Development
+## 开发
 
-The extension package is `apps/bridge-only`:
+扩展包位于 `apps/bridge-only`：
 
 ```
 apps/bridge-only/
-├── manifest.json           Manifest V3, MAIN world content script at document_start
-├── bridge.user.js          Generated content script (core + embedded data + bridge UI)
-├── vendor/crypto-js.min.js Bundled crypto-js 4.2.0
-├── demo.html               Local simulated-game demo
-├── source/                 Build-time data and bridge source
-└── build.mjs               Regenerates bridge.user.js from source/
+├── manifest.json           MV3 清单，document_start 阶段注入 MAIN world 内容脚本
+├── bridge.user.js          生成的内容脚本（core + 内嵌数据 + 桥接界面）
+├── vendor/crypto-js.min.js 内置的 crypto-js 4.2.0
+├── demo.html               本地模拟游戏演示页
+├── source/                 构建期数据与桥接源码
+└── build.mjs               从 source/ 重新生成 bridge.user.js
 ```
 
-After editing files under `source/`, regenerate the content script:
+修改 `source/` 下的文件后，重新生成内容脚本：
 
 ```bash
 node apps/bridge-only/build.mjs
 ```
 
-Then click **Reload** on the extension in the browser extensions page.
+然后在浏览器扩展页面点击该扩展的**重新加载**。
 
-## Limitations
+## 已知限制
 
-- Read-only: it never writes saves, changes game state, or automates play.
-- Opponent data may lag one round because it comes from a save snapshot.
-- Alternate forms (regional, Mega, etc.) may show as "not in dex", but raw game data still displays.
-- The embedded dex is a snapshot; update `source/` and rebuild to refresh it.
+- 只读：不会写入存档、改变游戏状态或自动操作。
+- 对手数据来自存档快照，可能滞后一回合。
+- 特殊形态（地区形态、Mega 进化等）可能显示为「图鉴未收录」，但游戏原始数据仍会显示。
+- 内置图鉴是某个时间点的快照；更新 `source/` 后重新构建即可刷新。
 
-## License
+## 许可证
 
-MIT — see [LICENSE](LICENSE).
+MIT — 详见 [LICENSE](LICENSE)。
 
-## Disclaimer
+## 声明
 
-Unofficial personal project. Not affiliated with PokéRogue, Nintendo, or Game Freak. Pokémon names and data belong to their respective owners.
+本项目为非官方个人项目，与 PokéRogue、任天堂、Game Freak 无关。宝可梦相关名称与数据版权归各自所有者所有。
