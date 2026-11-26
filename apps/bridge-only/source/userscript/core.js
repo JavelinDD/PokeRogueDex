@@ -1,0 +1,212 @@
+/**
+ * PokeDex 队伍桥 · 核心工具（中英文匹配、属性/性格译名、记录查找）
+ * 浏览器：window.PokeCore；Node：module.exports
+ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) { module.exports = api; }
+  root.PokeCore = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  // PokeRogue 属性枚举顺序（0 一般 … 17 妖精，18 星晶）
+  var TYPE_BY_ID = [
+    '一般', '格斗', '飞行', '毒', '地面', '岩石', '虫', '幽灵', '钢',
+    '火', '水', '草', '电', '超能力', '冰', '龙', '恶', '妖精', '星晶'
+  ];
+
+  var TYPE_ZH = {
+    'Normal': '一般', 'Fighting': '格斗', 'Flying': '飞行', 'Poison': '毒',
+    'Ground': '地面', 'Rock': '岩石', 'Bug': '虫', 'Ghost': '幽灵',
+    'Steel': '钢', 'Fire': '火', 'Water': '水', 'Grass': '草',
+    'Electric': '电', 'Psychic': '超能力', 'Ice': '冰', 'Dragon': '龙',
+    'Dark': '恶', 'Fairy': '妖精', 'Stellar': '星晶'
+  };
+
+  var NATURES = [
+    '勤奋', '孤独', '勇敢', '固执', '顽皮', '大胆', '坦率', '悠闲', '淘气', '乐天',
+    '胆小', '急躁', '认真', '开朗', '天真', '内敛', '慢吞吞', '冷静', '害羞', '马虎',
+    '沉着', '温和', '温顺', '慎重', '浮躁'
+  ];
+
+  // gameInfo 里的 nature 是英文枚举名（如 Docile），需要映射回中文
+  var NATURES_EN = {
+    'Hardy': '勤奋', 'Lonely': '孤独', 'Brave': '勇敢', 'Adamant': '固执', 'Naughty': '顽皮',
+    'Bold': '大胆', 'Docile': '坦率', 'Relaxed': '悠闲', 'Impish': '淘气', 'Lax': '乐天',
+    'Timid': '胆小', 'Hasty': '急躁', 'Serious': '认真', 'Jolly': '开朗', 'Naive': '天真',
+    'Modest': '内敛', 'Mild': '慢吞吞', 'Quiet': '冷静', 'Bashful': '害羞', 'Rash': '马虎',
+    'Calm': '沉着', 'Gentle': '温和', 'Sassy': '温顺', 'Careful': '慎重', 'Quirky': '浮躁'
+  };
+
+  /**
+   * 归一化名称，用于中英文混排匹配
+   * 「Mr. Mime」→ mr-mime；「Nidoran♀」→ nidoran-f；中文原样保留
+   */
+  function normalizeKey(name) {
+    if (name == null) { return ''; }
+    var s = String(name).trim().toLowerCase();
+    s = s.replace(/♀/g, '-f').replace(/♂/g, '-m');
+    s = s.replace(/[’'`´]/g, '');
+    s = s.replace(/[.\s_·]+/g, '-');
+    s = s.replace(/[^a-z0-9\u4e00-\u9fa5-]/g, '');
+    s = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+    return s;
+  }
+
+  function typeZh(value) {
+    if (value == null) { return ''; }
+    if (typeof value === 'number') { return TYPE_BY_ID[value] || ''; }
+    var s = String(value);
+    return TYPE_ZH[s] || s;
+  }
+
+  /**
+   * 性格译名：支持数字枚举（0~24）、英文枚举名（gameInfo 用）、中文原样
+   */
+  function natureZh(value) {
+    if (value == null || value === '') { return ''; }
+    if (typeof value === 'number') { return NATURES[value] || ''; }
+    var s = String(value);
+    if (NATURES_EN[s]) { return NATURES_EN[s]; }
+    return s;
+  }
+
+  /** 在索引里查找记录：优先图鉴号，其次中文名，再次归一化英文名 */
+  function findRecord(index, name, dexNo) {
+    if (!index || !index.length) { return null; }
+    if (typeof dexNo === 'number' && !isNaN(dexNo)) {
+      for (var i = 0; i < index.length; i++) {
+        if (index[i].d === dexNo) { return index[i]; }
+      }
+    }
+    var raw = String(name == null ? '' : name).trim();
+    if (!raw) { return null; }
+    var norm = normalizeKey(raw);
+    for (var j = 0; j < index.length; j++) {
+      if (index[j].n === raw) { return index[j]; }
+    }
+    for (var k = 0; k < index.length; k++) {
+      if (index[k].s === norm) { return index[k]; }
+    }
+    for (var m = 0; m < index.length; m++) {
+      if (normalizeKey(index[m].n) === norm) { return index[m]; }
+    }
+    return null;
+  }
+
+  /** 稀有度展示：r 为档位 1~6（6 = Boss 限定） */
+  function rarityName(rank) {
+    return ['普通', '罕见', '稀有', '超级稀有', '极其稀有', 'Boss'][(rank || 0) - 1] || '';
+  }
+
+  // 攻击属性 → 防御属性 的倍率（未列出的为 1 倍）
+  var TYPE_CHART = {
+    '一般': { '岩石': 0.5, '幽灵': 0, '钢': 0.5 },
+    '火': { '火': 0.5, '水': 0.5, '草': 2, '冰': 2, '虫': 2, '岩石': 0.5, '龙': 0.5, '钢': 2 },
+    '水': { '火': 2, '水': 0.5, '草': 0.5, '地面': 2, '岩石': 2, '龙': 0.5 },
+    '草': { '火': 0.5, '水': 2, '草': 0.5, '毒': 0.5, '地面': 2, '飞行': 0.5, '虫': 0.5, '岩石': 2, '龙': 0.5, '钢': 0.5 },
+    '电': { '水': 2, '电': 0.5, '草': 0.5, '地面': 0, '飞行': 2, '龙': 0.5 },
+    '冰': { '火': 0.5, '水': 0.5, '草': 2, '冰': 0.5, '地面': 2, '飞行': 2, '龙': 2, '钢': 0.5 },
+    '格斗': { '一般': 2, '冰': 2, '毒': 0.5, '飞行': 0.5, '超能力': 0.5, '虫': 0.5, '岩石': 2, '幽灵': 0, '恶': 2, '钢': 2, '妖精': 0.5 },
+    '毒': { '草': 2, '毒': 0.5, '地面': 0.5, '岩石': 0.5, '幽灵': 0.5, '钢': 0, '妖精': 2 },
+    '地面': { '火': 2, '电': 2, '草': 0.5, '毒': 2, '飞行': 0, '虫': 0.5, '岩石': 2, '钢': 2 },
+    '飞行': { '电': 0.5, '草': 2, '格斗': 2, '虫': 2, '岩石': 0.5, '钢': 0.5 },
+    '超能力': { '格斗': 2, '毒': 2, '超能力': 0.5, '恶': 0, '钢': 0.5 },
+    '虫': { '火': 0.5, '草': 2, '格斗': 0.5, '毒': 0.5, '飞行': 0.5, '超能力': 2, '幽灵': 0.5, '恶': 2, '钢': 0.5, '妖精': 0.5 },
+    '岩石': { '火': 2, '冰': 2, '格斗': 0.5, '地面': 0.5, '飞行': 2, '虫': 2, '钢': 0.5 },
+    '幽灵': { '一般': 0, '超能力': 2, '幽灵': 2, '恶': 0.5 },
+    '龙': { '龙': 2, '钢': 0.5, '妖精': 0 },
+    '恶': { '格斗': 0.5, '超能力': 2, '幽灵': 2, '恶': 0.5, '妖精': 0.5 },
+    '钢': { '火': 0.5, '水': 0.5, '电': 0.5, '冰': 2, '岩石': 2, '钢': 0.5, '妖精': 2 },
+    '妖精': { '火': 0.5, '格斗': 2, '毒': 0.5, '龙': 2, '恶': 2, '钢': 0.5 }
+  };
+
+  /**
+   * 计算某属性组合的防御面：
+   *   克制（weak）倍率 > 1；抵抗（resist）0 < 倍率 < 1；无效（immune）倍率 = 0
+   */
+  function defenseProfile(types) {
+    var defs = (types || []).filter(Boolean);
+    var weak = [];
+    var resist = [];
+    var immune = [];
+    if (!defs.length) { return { weak: weak, resist: resist, immune: immune }; }
+
+    Object.keys(TYPE_CHART).forEach(function (atk) {
+      var row = TYPE_CHART[atk] || {};
+      var mult = 1;
+      defs.forEach(function (def) {
+        mult *= (row[def] == null ? 1 : row[def]);
+      });
+      if (mult > 1) { weak.push({ type: atk, mult: mult }); }
+      else if (mult === 0) { immune.push({ type: atk, mult: 0 }); }
+      else if (mult < 1) { resist.push({ type: atk, mult: mult }); }
+    });
+
+    weak.sort(function (a, b) { return b.mult - a.mult; });
+    resist.sort(function (a, b) { return a.mult - b.mult; });
+    return { weak: weak, resist: resist, immune: immune };
+  }
+
+  /**
+   * 解析存档里的物种字段，返回全国图鉴号或 null
+   * 兼容：数字（SpeciesId）、数字字符串、物种名（slug/中文名/英文名）
+   */
+  function resolveSpeciesValue(index, value) {
+    if (typeof value === 'number' && isFinite(value)) {
+      return (value > 0 && value <= 2000) ? value : null;
+    }
+    if (typeof value === 'string') {
+      var s = value.trim();
+      if (!s) { return null; }
+      if (/^\d+$/.test(s)) {
+        var n = Number(s);
+        return (n > 0 && n <= 2000) ? n : null;
+      }
+      var rec = findRecord(index, s, null);
+      if (rec && typeof rec.d === 'number' && rec.d > 0) { return rec.d; }
+    }
+    return null;
+  }
+
+  /** 编号 → 名称（speciesNames 为 {编号: 名称}） */
+  function speciesName(speciesNames, id) {
+    if (!speciesNames || id == null) { return ''; }
+    return speciesNames[id] || speciesNames[String(id)] || '';
+  }
+
+  /**
+   * 按倍率分组（降序），用于「冰 ×4；电、草 ×2」这种展示
+   * 返回 [{ mult, types: [...] }]
+   */
+  function groupByMultiplier(list) {
+    var order = [];
+    var groups = {};
+    (list || []).forEach(function (x) {
+      var key = String(x.mult);
+      if (!groups[key]) {
+        groups[key] = { mult: x.mult, types: [] };
+        order.push(key);
+      }
+      groups[key].types.push(x.type);
+    });
+    return order.map(function (k) { return groups[k]; })
+      .sort(function (a, b) { return b.mult - a.mult; });
+  }
+
+  return {
+    TYPE_BY_ID: TYPE_BY_ID,
+    TYPE_ZH: TYPE_ZH,
+    NATURES: NATURES,
+    normalizeKey: normalizeKey,
+    typeZh: typeZh,
+    natureZh: natureZh,
+    findRecord: findRecord,
+    rarityName: rarityName,
+    resolveSpeciesValue: resolveSpeciesValue,
+    speciesName: speciesName,
+    groupByMultiplier: groupByMultiplier,
+    TYPE_CHART: TYPE_CHART,
+    defenseProfile: defenseProfile
+  };
+});

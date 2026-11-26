@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "PokeDex 图鉴桥（独立版）",
+  "version": "0.1.0",
+  "description": "PokéRogue 游戏内队伍桥：读取我方队伍与对手，对照内嵌图鉴显示属性、克制、种族值与稀有度",
+  "host_permissions": [
+    "https://pokerogue.net/*",
+    "https://*.pokerogue.net/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://pokerogue.net/*", "https://*.pokerogue.net/*"],
+      "js": ["vendor/crypto-js.min.js", "bridge.user.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    }
+  ]
+}

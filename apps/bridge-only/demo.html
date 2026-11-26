@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>图鉴桥 · 独立版演示</title>
+  <style>
+    body { margin: 0; min-height: 100vh; padding: 24px; font: 14px/1.7 "Microsoft YaHei", system-ui, sans-serif;
+      color: #e5e7eb; background: #111827; }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    .card { max-width: 620px; padding: 16px 20px; border: 1px solid #374151; border-radius: 12px; background: #1f2937; }
+    .muted { color: #9ca3af; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>PokeDex 图鉴桥 · 独立版演示</h1>
+    <p>此页面模拟 pokerogue.net 的游戏环境：右下角会出现「图鉴桥」按钮，点开即可看到
+      <b>我方队伍</b>与<b>对手</b>的属性、克制、种族值、特性、招式、稀有度与区域。</p>
+    <p class="muted">此版本只含桥接功能，没有图鉴页面；数据已内嵌在内容脚本中。演示数据为内置样例。</p>
+  </div>
+
+  <script src="vendor/crypto-js.min.js"></script>
+  <script src="bridge.user.js"></script>
+  <script>
+    window.gameInfo = {
+      party: [{
+        name: '妙蛙种子', level: 12, currentHP: 38, maxHP: 38,
+        types: [11, 3], ability: '茂盛', passiveAbility: '叶绿素', isPassiveEnabled: true,
+        nature: 'Modest', shiny: false,
+        moveset: ['拍击', '寄生种子', '飞叶快刀'],
+        baseStats: { atk: 49, def: 49, spAtk: 65, spDef: 65, speed: 45 }
+      }, {
+        name: '喷火龙', level: 15, currentHP: 44, maxHP: 52,
+        types: [9, 2], ability: '猛火', passiveAbility: '太阳之力', isPassiveEnabled: false,
+        nature: 'Timid', shiny: true,
+        moveset: ['火花', '翅膀攻击', '空气斩'],
+        baseStats: { atk: 84, def: 78, spAtk: 109, spDef: 85, speed: 100 }
+      }]
+    };
+    try {
+      var SAVE_KEY = 'x0i2O7WRiANTqPmZ';
+      var save = { enemyParty: [{
+        species: 6, level: 14, hp: 40,
+        stats: [40, 26, 22, 30, 24, 28],
+        ivs: [31, 20, 18, 25, 22, 30],
+        abilityIndex: 0, moveset: [1, 53], shiny: false, nature: 'Timid'
+      }, {
+        species: 25, level: 13, hp: 33,
+        stats: [33, 21, 15, 22, 20, 30],
+        ivs: [28, 24, 12, 26, 19, 31],
+        abilityIndex: 0, moveset: [86], shiny: false, nature: 'Jolly'
+      }] };
+      localStorage.setItem('sessionDataDEMO', CryptoJS.AES.encrypt(JSON.stringify(save), SAVE_KEY).toString());
+      localStorage.setItem('pokedex-bridge-enabled', '1');
+    } catch (e) { /* 演示环境不支持本地存储时忽略 */ }
+  </script>
+</body>
+</html>
