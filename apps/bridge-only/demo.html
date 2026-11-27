@@ -17,6 +17,7 @@
     <p>此页面模拟 pokerogue.net 的游戏环境：右下角会出现「图鉴桥」按钮，点开即可看到
       <b>我方队伍</b>与<b>对手</b>的属性、克制、种族值、特性、招式、稀有度与区域。</p>
     <p class="muted">此版本只含桥接功能，没有图鉴页面；数据已内嵌在内容脚本中。演示数据为内置样例。</p>
+    <p class="muted">样例中：敌方喷火龙为闪光、敌方皮卡丘为隐藏特性，条目会显示金色边框。</p>
   </div>
 
   <script src="vendor/crypto-js.min.js"></script>
@@ -43,12 +44,12 @@
         species: 6, level: 14, hp: 40,
         stats: [40, 26, 22, 30, 24, 28],
         ivs: [31, 20, 18, 25, 22, 30],
-        abilityIndex: 0, moveset: [1, 53], shiny: false, nature: 'Timid'
+        abilityIndex: 0, moveset: [1, 53], shiny: true, nature: 'Timid'
       }, {
         species: 25, level: 13, hp: 33,
         stats: [33, 21, 15, 22, 20, 30],
         ivs: [28, 24, 12, 26, 19, 31],
-        abilityIndex: 0, moveset: [86], shiny: false, nature: 'Jolly'
+        abilityIndex: 2, moveset: [86], shiny: false, nature: 'Jolly'
       }] };
       localStorage.setItem('sessionDataDEMO', CryptoJS.AES.encrypt(JSON.stringify(save), SAVE_KEY).toString());
       localStorage.setItem('pokedex-bridge-enabled', '1');

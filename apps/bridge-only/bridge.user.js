@@ -310,6 +310,15 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
     return window.PokeCore.findRecord(INDEX, name, dexNo);
   }
 
+  /**
+   * PokéRogue 特性槽：0/1 为普通特性，2 为隐藏特性（HA）。
+   * 存档中的 abilityIndex 与游戏对象上的 abilityIndex 都按此口径判断。
+   */
+  function isHiddenAbility(abilityName, abilityIndex) {
+    if (typeof abilityIndex === 'number' && abilityIndex >= 2) { return true; }
+    return false;
+  }
+
   /* ---------------- 招式表（ID / 名称 → 名称 + 属性） ---------------- */
 
   var moveNameMap = null;
@@ -335,6 +344,8 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
       var s = p.species || {};
       return s.speciesId != null ? s.speciesId : s.id;
     }, null);
+    var abilityName = safe(function () { return p.getAbility(true).name; }, '');
+    var abilityIndex = safe(function () { return p.abilityIndex; }, null);
     return {
       name: safe(function () { return p.name; }, '?'),
       level: safe(function () { return p.level; }, 0),
@@ -345,7 +356,8 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
           .map(function (t) { return window.PokeCore.TYPE_BY_ID[t]; })
           .filter(Boolean);
       }, []),
-      ability: safe(function () { return p.getAbility(true).name; }, ''),
+      ability: abilityName,
+      hiddenAbility: isHiddenAbility(abilityName, abilityIndex),
       passive: safe(function () { return p.getPassiveAbility().name; }, ''),
       nature: safe(function () { return window.PokeCore.natureZh(p.getNature()); }, ''),
       moves: safe(function () {
@@ -370,6 +382,7 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
       maxHp: gi.maxHP || 0,
       types: types,
       ability: gi.ability || '',
+      hiddenAbility: !!gi.hiddenAbility,
       passive: gi.isPassiveEnabled ? (gi.passiveAbility || '') : (gi.passiveAbility || '') + '（未启用）',
       nature: window.PokeCore.natureZh(gi.nature || ''),
       moves: (gi.moveset || []).filter(Boolean).map(function (n) {
@@ -402,9 +415,11 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
     var rawName = (typeof raw === 'string' && raw && !/^\d+$/.test(raw)) ? raw : '';
 
     var ability = '';
+    var hidden = isHiddenAbility('', entry.abilityIndex);
     if (rec && rec.a && rec.a.length && typeof entry.abilityIndex === 'number') {
       ability = rec.a[entry.abilityIndex] || '';
     }
+    if (hidden && !ability && rec && rec.a && rec.a[2]) { ability = rec.a[2]; }
     var passive = '';
     if (rec && rec.p && rec.p.length && entry.passive) { passive = rec.p[0] + '（推测）'; }
 
@@ -425,6 +440,7 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
       maxHp: Array.isArray(entry.stats) ? (entry.stats[0] || 0) : 0,
       types: rec ? rec.t : [],
       ability: ability,
+      hiddenAbility: hidden,
       passive: passive,
       nature: window.PokeCore.natureZh(entry.nature),
       moves: savedMoves.slice(0, 6),
@@ -785,6 +801,11 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
       '.tt{color:#9ca3af;margin-bottom:6px;font-size:11.5px;letter-spacing:.4px}',
       '.row{display:block;padding:5px 0;border-bottom:1px dashed #1f2937}',
       '.row:last-child{border-bottom:none}',
+      '.row.gold{border:1px solid #fbbf24;border-radius:8px;padding:5px 7px;margin:2px -7px;',
+      'background:rgba(251,191,36,.07);box-shadow:inset 0 0 0 1px rgba(251,191,36,.16)}',
+      '.row.gold:last-child{border-bottom:1px solid #fbbf24}',
+      '.gold-tag{display:inline-block;padding:0 6px;border-radius:5px;font-size:10.5px;line-height:16px;',
+      'background:#fbbf24;color:#1f2937;font-weight:600;white-space:nowrap}',
       '.sum{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
       '.tog{background:none;border:none;color:#9ca3af;cursor:pointer;font-size:12px;padding:0 3px;line-height:1}',
       '.tog:hover{color:#fff}',
@@ -978,11 +999,16 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
   function rowHtml(p, key) {
     var hp = p.maxHp ? (p.hp + '/' + p.maxHp) : (p.hp || '');
     var open = !!expandedRows[key];
-    return '<div class="row' + (open ? ' open' : '') + '" data-key="' + esc(key) + '">'
+    var gold = !!(p.shiny || p.hiddenAbility);
+    var goldLabels = [];
+    if (p.shiny) { goldLabels.push('闪光'); }
+    if (p.hiddenAbility) { goldLabels.push('隐藏特性'); }
+    return '<div class="row' + (open ? ' open' : '') + (gold ? ' gold' : '') + '" data-key="' + esc(key) + '">'
       + '<div class="sum">'
       + '<button type="button" class="tog" data-toggle="' + esc(key) + '" title="展开/收起">'
       + (open ? '▾' : '▸') + '</button>'
-      + '<span class="nm">' + esc(p.name) + (p.shiny ? ' ✦' : '') + '</span>'
+      + '<span class="nm">' + esc(p.name) + '</span>'
+      + (gold ? '<span class="gold-tag">' + goldLabels.join(' · ') + '</span>' : '')
       + '<span class="lv">Lv.' + esc(p.level) + '</span>'
       + (hp ? '<span class="hp">HP ' + esc(hp) + '</span>' : '')
       + (p.types || []).map(typeBadge).join('')
@@ -992,7 +1018,8 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
       + baseStatsHtml(p)
       + ivLineHtml(p)
       + statsLineHtml(p)
-      + (p.ability || p.passive ? '<div class="mv">特性：' + esc(p.ability || '—')
+      + (p.ability || p.passive || p.hiddenAbility ? '<div class="mv">特性：'
+        + esc(p.ability || (p.hiddenAbility ? '隐藏特性' : '—'))
         + (p.passive ? ' ｜ 被动：' + esc(p.passive) : '') + '</div>' : '')
       + (p.nature ? '<div class="mv">性格：' + esc(p.nature) + '</div>' : '')
       + movesHtml(p.moves)
@@ -1050,10 +1077,10 @@ var POKEDEX_MOVES = {"1":{"n":"拍击","t":"一般","c":"物理"},"2":{"n":"空�
   function signatureOf() {
     return JSON.stringify({
       p: state.player.map(function (p) {
-        return [p.name, p.level, p.hp, p.maxHp, (p.moves || []).join(','), p.ability, p.nature, p.types.join(','), (p.stats6 || []).join(',')];
+        return [p.name, p.level, p.hp, p.maxHp, (p.moves || []).join(','), p.ability, p.nature, p.types.join(','), (p.stats6 || []).join(','), p.shiny, p.hiddenAbility];
       }),
       e: state.enemy.map(function (p) {
-        return [p.name, p.level, p.hp, p.maxHp, p.boss || '', (p.ivs || []).join(','), (p.stats6 || []).join(',')];
+        return [p.name, p.level, p.hp, p.maxHp, p.boss || '', (p.ivs || []).join(','), (p.stats6 || []).join(','), p.shiny, p.hiddenAbility];
       }),
       ps: state.playerSource,
       es: state.enemySource,
